@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace BagirovIslyam.RobotChallange
 {
-    public class Class1
+    class RobotMove
     {
     }
 }
