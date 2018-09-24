@@ -292,23 +292,6 @@ namespace BagirovIslyam.RobotChallange
             
             }
             return npath;
-            //for(int step = steps; step > 2; step--)
-            if(steps == 1)
-                return lpath;
-            if (steps > 2)
-            {
-                lpath = DevideTo(lpath, --steps, energy);////ifnull
-                if (lpath == null)
-                    return null;
-                energy -= lpath.L;
-            }
-
-            lpath = DevideToTwo(lpath, (uint)energy);
-            
-
-            if (lpath.L > energy)
-                return null;
-            return lpath;
         }
 
         public static Path DevideToTwo(Path lpath, uint energy)

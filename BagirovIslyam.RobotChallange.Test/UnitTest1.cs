@@ -64,21 +64,24 @@ namespace BagirovIslyam.RobotChallange.Test
         {
             Map map = new Map();
             Position p1 = new Position(1, 1);
-            Position p2 = new Position(1, 1);
+            Position p2 = new Position(2, 2);
             var station = new EnergyStation() { Energy = 2000, Position = p1, RecoveryRate = 2 };
             map.Stations.Add(station);
 
             List<Robot.Common.Robot> robots = new List<Robot.Common.Robot>()
             {
+                new Robot.Common.Robot(){Energy=500, Position = p1 },
                 new Robot.Common.Robot(){Energy=500, Position = p2 }
             };
 
             IRobotAlgorithm algorithm = new BagirovIslyamAlgorithm();
             RobotCommand step = algorithm.DoStep(robots, 0, map);
 
-            var sFree = (algorithm as BagirovIslyamAlgorithm).IsStationFree(station, robots[0], robots);
+            var smped = (algorithm as BagirovIslyamAlgorithm).IsStationFree(station, robots[0], robots);
+            Assert.IsTrue(smped);
+            var sFree = (algorithm as BagirovIslyamAlgorithm).IsStationFree(station, robots[1], robots);
 
-            Assert.IsTrue(sFree is false);
+            Assert.IsFalse(sFree);
         }
 
 
@@ -87,20 +90,23 @@ namespace BagirovIslyam.RobotChallange.Test
         {
             Map map = new Map();
             Position p1 = new Position(1, 1);
-            Position p2 = new Position(1, 1);
+            Position p2 = new Position(2, 2);
             var station = new EnergyStation() { Energy = 2000, Position = p1, RecoveryRate = 2 };
             map.Stations.Add(station);
 
             List<Robot.Common.Robot> robots = new List<Robot.Common.Robot>()
             {
+                new Robot.Common.Robot(){Energy=500, Position = p1 },
                 new Robot.Common.Robot(){Energy=500, Position = p2 }
             };
 
             IRobotAlgorithm algorithm = new BagirovIslyamAlgorithm();
             RobotCommand step = algorithm.DoStep(robots, 0, map);
 
-            var sFree = (algorithm as BagirovIslyamAlgorithm).IsStationFree(station, robots[0], robots);
-
+            var smped = (algorithm as BagirovIslyamAlgorithm).IsCellFree(p1, robots[1], robots);
+            
+            var sFree = (algorithm as BagirovIslyamAlgorithm).IsCellFree(p2, robots[0], robots);
+            Assert.IsFalse(smped);
             Assert.IsFalse(sFree);
         }
 
@@ -130,5 +136,46 @@ namespace BagirovIslyam.RobotChallange.Test
             Assert.AreEqual(nearest, ps1);
         }
 
+
+        [TestMethod]
+        public void StepsToPosTest()
+        {
+            Map map = new Map();
+            Position ps1 = new Position(3, 6);
+            Position ps2 = new Position(3, 1);
+            Position ps3 = new Position(300, 100);
+
+            Assert.IsTrue(Path.MinStepsNumNorm(ps1,ps2));
+            Assert.IsFalse(Path.MinStepsNumNorm(ps1, ps3));
+        }
+
+        [TestMethod]
+        public void VectorAddTest()
+        {
+            Vector vector1 = new Vector(2, 4);
+            Vector vector2 = new Vector(1, 2);
+            var sum = vector1.Add(vector2);
+            Assert.AreEqual(sum.X, 3);
+            Assert.AreEqual(sum.Y, 6);
+        }
+
+        [TestMethod]
+        public void VectorSubTest()
+        {
+            Vector vector1 = new Vector(2, 4);
+            Vector vector2 = new Vector(1, 2);
+            var sum = vector1.Sub(vector2);
+            Assert.AreEqual(sum.X, 1);
+            Assert.AreEqual(sum.Y, 2);
+        }
+
+        [TestMethod]
+        public void VectorDivTest()
+        {
+            Vector vector1 = new Vector(2, 4);
+            var sum = vector1.Div(2);
+            Assert.AreEqual(sum.X, 1);
+            Assert.AreEqual(sum.Y, 2);
+        }
     }
 }
