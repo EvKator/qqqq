@@ -14,7 +14,7 @@ namespace BagirovIslyam.RobotChallange
     {
         public BagirovIslyamAlgorithm()
         {
-            paths = new List<Path>();
+            paths = new Dictionary<int, Path>();
         }
 
         string IRobotAlgorithm.Author
@@ -33,23 +33,29 @@ namespace BagirovIslyam.RobotChallange
             }
         }
         
-        private List<Path> paths;
+        private Dictionary<int, Path> paths;
         bool move = true;
 
         RobotCommand IRobotAlgorithm.DoStep(IList<Robot.Common.Robot> robots, int robotToMoveIndex, Map map)
         {
+
+            
             //robots[robotToMoveIndex].Energy += 10000;
-            Robot.Common.Robot movingRobot = robots[robotToMoveIndex]; if ((movingRobot.Energy > 500) && (robots.Count < map.Stations.Count)) { return new CreateNewRobotCommand(); }
-
-
+           
+            
             Position stationPosition = FindNearestFreeStation(robots[robotToMoveIndex], map, robots);
 
+            Robot.Common.Robot movingRobot = robots[robotToMoveIndex]; if ((movingRobot.Energy > 500) &&  Path.MinStepsNumNorm(movingRobot.Position, stationPosition)  /* && (robots.Count < map.Stations.Count)*/) { return new CreateNewRobotCommand() {  } ; }
 
-            if (robotToMoveIndex >= paths.Count)
+            if (!paths.ContainsKey(robotToMoveIndex) || paths[robotToMoveIndex].Move == false)
             {
                 var path = new Path(movingRobot.Position, stationPosition);
                 path = path.DevideWithMinSteps();
-                paths.Add(path) ;
+                if (!paths.ContainsKey(robotToMoveIndex))
+                    paths.Add(robotToMoveIndex, path);
+                else
+                    paths[robotToMoveIndex] = path;
+                System.Diagnostics.Debug.WriteLine(path.ToString());
             }
 
             if (stationPosition == null) return null;
@@ -70,13 +76,20 @@ namespace BagirovIslyam.RobotChallange
         {
             EnergyStation nearest = null; int minDistance = int.MaxValue; foreach (var station in map.Stations)
             {
-                if (paths.FindIndex(p => p.FinPosition == station.Position) != -1)
-                    continue;
-                if (IsStationFree(station, movingRobot, robots))
+                Path a;
+                try
                 {
-                    int d = DistanceHelper.FindDistance(station.Position, movingRobot.Position);
+                    a = paths.First(p => p.Value.FinPosition == station.Position && p.Value.Move == true).Value;
+                    continue;
+                }
+                catch
+                {
+                    if (IsStationFree(station, movingRobot, robots))
+                    {
+                        int d = DistanceHelper.FindDistance(station.Position, movingRobot.Position);
 
-                    if (d < minDistance) { minDistance = d; nearest = station; }
+                        if (d < minDistance) { minDistance = d; nearest = station; }
+                    }
                 }
             }
 
@@ -92,6 +105,7 @@ namespace BagirovIslyam.RobotChallange
 
 
     }
+    
 
 
     public struct Vector
@@ -119,13 +133,36 @@ namespace BagirovIslyam.RobotChallange
             Vector vec = new Vector(X,Y);
             for(int i = 0; i < l; i++)
             {
-                if (Math.Abs(vec.X) > Math.Abs(vec.Y))//////////////////////////////
-                    vec.X += -1 * Math.Sign(X);
+
+                if (Math.Abs(vec.X) > Math.Abs(vec.Y))
+                {
+                    if (Math.Sign(vec.X * (vec.X - 1 * Math.Sign(X))) != -1)
+                        vec.X -= 1 * Math.Sign(X);
+                    else
+                    {
+                        vec.X += 1 * Math.Sign(X);
+                        return vec;
+                    }
+                }//////////////////////////////
+
                 else
-                    vec.Y += -1 * Math.Sign(Y);
+                {
+                    if (Math.Sign(vec.Y * (vec.Y - 1 * Math.Sign(Y))) != -1)
+                        vec.Y -= 1 * Math.Sign(Y);
+                    else
+                    {
+                        vec.Y += 1 * Math.Sign(Y);
+                        return vec;
+                    }
+                }
             }
             return vec;
 
+        }
+
+        public override string ToString()
+        {
+            return String.Format("({0},{1})", X.ToString(), Y.ToString());
         }
 
     }
@@ -135,6 +172,14 @@ namespace BagirovIslyam.RobotChallange
         public Position StartPosition { get; set; }
         public Position FinPosition { get; set; }
         List<Vector> vectors;
+        public bool Move = true;
+
+        public override string ToString()
+        {
+            string res = String.Format("[{0} -> {1}]", StartPosition.ToString(), FinPosition.ToString());
+            vectors.ForEach(v => res += ", " + v.ToString());
+            return res;
+        }
 
         public Path(params Vector[] vector)
         {
@@ -164,28 +209,60 @@ namespace BagirovIslyam.RobotChallange
         {
             if (vectors.Count == 0)
                 return null;
-            
-            
-            var vector = this.vectors[0];
-            vectors.RemoveAt(0);
-            Position newPos = StartPosition.Add(vector);
 
-            return newPos;
+            if (Move)
+            {
+                var vector = this.vectors[0];
+                vectors.RemoveAt(0);
+                if (vectors.Count == 0)
+                    Move = false;
+                StartPosition = StartPosition.Add(vector);
+            }
+
+            return StartPosition;
+        }
+        
+        public static bool MinStepsNumNorm(Position p1, Position p2)
+        {
+            Path p = new Path(p1, p2);
+            return p.MinStepsNum();
+        }
+
+        public bool MinStepsNum()
+        {
+            const int maxSteps = 10;
+            const int energy = 100;
+            Path path = (Path)this.Clone();
+            int step = 1;
+            for (; step < maxSteps && path.L > energy; step++)
+            {
+                path = DevideTo(path, step, energy);
+                if (path == null || path.L > energy)
+                    path = (Path)this.Clone();
+            }
+            if (step >= maxSteps)
+            {
+                return false;
+            }
+            return true;
         }
 
         public Path DevideWithMinSteps()
         {
-            const int maxSteps = 100;
+            const int maxSteps = 10;
             const int energy = 100;
             Path path = (Path)this.Clone();
-
-            for(int step = 1; step < maxSteps && path.L > energy ; step++)
+            int step = 1;
+            for (; step < maxSteps && path.L > energy ; step++)
             {
                 path = DevideTo(path, step, energy);
-                if (path == null)
+                if (path == null || path.L > energy)
                     path = (Path)this.Clone();
             }
-
+            if (step >= maxSteps)
+            {
+                path.Move = false;
+            }
             return path;
         }
 
@@ -193,9 +270,28 @@ namespace BagirovIslyam.RobotChallange
         {
 
             
-            uint maxReduceStep = (uint)Math.Abs(Math.Max(lpath.vectors.Last().X, lpath.vectors.Last().Y));////////module
+            //uint maxReduceStep = (uint)Math.Abs(Math.Max(lpath.vectors.Last().X, lpath.vectors.Last().Y));////////module
+            Path npath = (Path)lpath.Clone();
+            for (int step = steps; step > 1; step--)
+            {
+                /*uint reduceStepX = (uint)((Math.Abs(npath.vectors[0].X) + Math.Abs(npath.vectors[0].Y)) / step);
+                int reduceStepY = ((npath.vectors[0].Y) / step);*/
+
+                var lastVec = npath.vectors[0];
+                var newVec = lastVec.Div(step);
+                npath.vectors.Remove(lastVec);
+
+                if (newVec.L > lastVec.Sub(newVec).L)
+                {
+                    npath.Insert(0,
+                        new Path(newVec, lastVec.Sub(newVec)));
+                }
+                else
+                    npath.Insert(0,
+                        new Path(lastVec.Sub(newVec), newVec));
             
-            
+            }
+            return npath;
             //for(int step = steps; step > 2; step--)
             if(steps == 1)
                 return lpath;
@@ -237,6 +333,11 @@ namespace BagirovIslyam.RobotChallange
         public void Add(Path p)
         {
             p.vectors.ForEach(v => this.vectors.Add(v));
+        }
+
+        public void Insert(int i, Path p)
+        {
+            p.vectors.ForEach(v => this.vectors.Insert(i++,v));
         }
 
         public Position endPos()
@@ -297,5 +398,11 @@ namespace BagirovIslyam.RobotChallange
             return new Vector(pos0.X / N, pos0.Y / N);
         }
 
+        public static string ToString(this Position pos)
+        {
+            return String.Format("({0},{1})", pos.X.ToString(), pos.Y.ToString());
+        }
     }
+
+   
 }
